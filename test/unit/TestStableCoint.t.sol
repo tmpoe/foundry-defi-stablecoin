@@ -31,6 +31,30 @@ contract TestStableCoin is Test {
     }
 
     /*
+     * GIVEN: A stable coin contract
+     * WHEN: We call mint for address zero
+     * THEN: We can't mint for that address
+     */
+    function test_cantMintForZeroAddress() public {
+        vm.startBroadcast(deployerKey);
+        vm.expectRevert(StableCoin.StableCoin__ZeroAddress.selector);
+        stableCoin.mint(address(0), 1000000000000000000);
+        vm.stopBroadcast();
+    }
+
+    /*
+     * GIVEN: A stable coin contract
+     * WHEN: We call mint for a user with zero amount
+     * THEN: We can't mint a zero amount
+     */
+    function test_cantMintNegativeAmount() public {
+        vm.startBroadcast(deployerKey);
+        vm.expectRevert(StableCoin.StableCoin__MustBeMoreThanZero.selector);
+        stableCoin.mint(address(this), 0);
+        vm.stopBroadcast();
+    }
+
+    /*
      * GIVEN: Some stable coins
      * WHEN: Call burn with amount X
      * THEN: We can burn X amount of coins
@@ -40,6 +64,32 @@ contract TestStableCoin is Test {
         stableCoin.burn(100000000000000000);
         vm.stopBroadcast();
         assert(stableCoin.balanceOf(stableCoin.owner()) == 900000000000000000);
+    }
+
+    /*
+     * GIVEN: Some stable coins
+     * WHEN: Call burn with amount 0
+     * THEN: We can't burn 0 amount of coins
+     */
+    function test_cantBurnZero() public setupUser {
+        vm.startBroadcast(deployerKey);
+        vm.expectRevert(StableCoin.StableCoin__MustBeMoreThanZero.selector);
+        stableCoin.burn(0);
+        vm.stopBroadcast();
+    }
+
+    /*
+     * GIVEN: Some stable coins
+     * WHEN: Call burn for with more than we have
+     * THEN: We can't burn more than we have
+     */
+    function test_cantBurnMoreThanWeHave() public setupUser {
+        vm.startBroadcast(deployerKey);
+        vm.expectRevert(
+            StableCoin.StableCoin__BurnAmountIsMoreThanBalance.selector
+        );
+        stableCoin.burn(1000000000000000001);
+        vm.stopBroadcast();
     }
 
     modifier setupUser() {

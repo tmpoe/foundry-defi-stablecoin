@@ -35,7 +35,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  * Stability: Anchored to USD
  * Minting: Algorithmic
  *
- * This is a stable coin governed by DSCEngine. This contract is the ERC20 implementation of a stable coin system.
+ * This is a stable coin governed by SCEngine. This contract is the ERC20 implementation of a stable coin system.
  *
  */
 contract StableCoin is ERC20Burnable, Ownable {

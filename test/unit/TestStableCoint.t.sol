@@ -31,9 +31,9 @@ contract TestStableCoin is Test {
     }
 
     /*
-     * GIVEN: A user with a balance
-     * WHEN: A user for whom we want to burn
-     * THEN: We can burn for that user
+     * GIVEN: Some stable coins
+     * WHEN: Call burn with amount X
+     * THEN: We can burn X amount of coins
      */
     function test_canBurn() public setupUser {
         vm.startBroadcast(deployerKey);

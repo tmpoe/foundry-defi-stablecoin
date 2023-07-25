@@ -19,7 +19,13 @@ pragma solidity ^0.8.20;
 contract SCEngine {
     function mintSCWithCollateral() external {}
 
+    function mintSc() external {}
+
     function redeemCollateralForSC() external {}
+
+    function redeemSCForCollateral() external {}
+
+    function depositCollateral() external {}
 
     function burnSCForCollateral() external {}
 

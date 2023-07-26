@@ -23,6 +23,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+
 import {StableCoin} from "./StableCoin.sol";
 
 /*
@@ -40,7 +42,7 @@ import {StableCoin} from "./StableCoin.sol";
  * @notice This is the core of this stable coin system. It handles minting, redeeming, depositing and withdrawing.
  * @notice Loosely based on DAI without no governance, fees and is backed only by WETH and WBTC.
  */
-contract SCEngine {
+contract SCEngine is ReentrancyGuard {
     error SCEngine__MustBeMoreThanZero();
     error SCEngine__NotAllowedTokenCollateral();
     error SCEngine__TokenAddressesAndPriceFeedAddressesMustBeEqualLengths();
@@ -98,6 +100,7 @@ contract SCEngine {
         external
         moreThanZero(amount)
         isAllowedTokenCollateral(tokenCollateralAddress)
+        nonReentrant
     {}
 
     function burnSCForCollateral() external {}

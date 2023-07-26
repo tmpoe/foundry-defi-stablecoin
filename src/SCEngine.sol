@@ -51,6 +51,9 @@ contract SCEngine is ReentrancyGuard {
 
     mapping(address => address) private s_priceFeeds;
     mapping(address => mapping(address => uint256)) private s_collateralBalances;
+    mapping(address => uint256) private s_SCMinted;
+
+    address[] private s_tokenCollateralAddresses;
 
     StableCoin private immutable i_stableCoin;
 
@@ -81,6 +84,7 @@ contract SCEngine is ReentrancyGuard {
 
         for (uint256 i = 0; i < tokenCollateralAddresses.length; i++) {
             s_priceFeeds[tokenCollateralAddresses[i]] = priceFeedAddresses[i];
+            s_tokenCollateralAddresses.push(tokenCollateralAddresses[i]);
         }
 
         i_stableCoin = StableCoin(stableCoinAddress);
@@ -88,7 +92,13 @@ contract SCEngine is ReentrancyGuard {
 
     function mintSCWithCollateral() external {}
 
-    function mintSc() external {}
+    /*
+     * @notice Follows CEI
+     * @param amountToMint The amount of stable coins to mint
+     */
+    function mintSc(uint256 amountToMint) external nonReentrant {
+        s_SCMinted[msg.sender] += amountToMint;
+    }
 
     function redeemCollateralForSC() external {}
 
@@ -122,4 +132,32 @@ contract SCEngine is ReentrancyGuard {
     function liquidate() external {}
 
     function getHealthFactor() external view {}
+
+    function _getAccountInformation(address user)
+        private
+        view
+        returns (uint256 totalSCMinted, uint256 totalCollateralValueInUSD)
+    {
+        totalSCMinted = s_SCMinted[user];
+        totalCollateralValueInUSD = getCollateralValue(user);
+    }
+
+    function _checkUserHealthFactor(address user) internal view {
+        // Get user health factor
+        // If below 1, revert
+    }
+
+    /*
+    * Returns how close the user is to being liquidated
+    * @param userAddress The address of the user
+    */
+    function _getUserHealthFactor(address user) internal view {
+        (uint256 totalSCMinted, uint256 totalCollateralValueInUSD) = _getAccountInformation(user);
+    }
+
+    function getCollateralValue(address user) public view returns (uint256) {
+        for (uint256 i = 0; i < s_tokenCollateralAddresses.length; i++) {
+            // get price feed
+        }
+    }
 }

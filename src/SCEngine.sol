@@ -25,6 +25,7 @@ pragma solidity ^0.8.20;
 
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
 import {StableCoin} from "./StableCoin.sol";
 
@@ -48,6 +49,8 @@ contract SCEngine is ReentrancyGuard {
     error SCEngine__NotAllowedTokenCollateral();
     error SCEngine__TokenAddressesAndPriceFeedAddressesMustBeEqualLengths();
     error SCEngine__TransferFailed();
+    error SCEngine__NotEnoughCollateral();
+    error SCEngine__MintFailed();
 
     mapping(address => address) private s_priceFeeds;
     mapping(address => mapping(address => uint256)) private s_collateralBalances;
@@ -56,6 +59,12 @@ contract SCEngine is ReentrancyGuard {
     address[] private s_tokenCollateralAddresses;
 
     StableCoin private immutable i_stableCoin;
+
+    uint256 private constant ADDITIONAL_PRICE_FEE_PRECISION = 1e10;
+    uint256 private constant PRECISION = 1e18;
+    uint256 private constant LIQUIDATION_THRESHOLD = 50;
+    uint256 private constant LIQUIDATION_PRECISION = 100;
+    uint256 private constant MIN_HEALTH_FACTOR = 1;
 
     event CollateralDeposited(address indexed depositor, address indexed tokenCollateralAddress, uint256 amount);
 
@@ -98,6 +107,11 @@ contract SCEngine is ReentrancyGuard {
      */
     function mintSc(uint256 amountToMint) external nonReentrant {
         s_SCMinted[msg.sender] += amountToMint;
+        _checkUserHealthFactor(msg.sender);
+        (bool success) = i_stableCoin.mint(msg.sender, amountToMint);
+        if (!success) {
+            revert SCEngine__MintFailed();
+        }
     }
 
     function redeemCollateralForSC() external {}
@@ -145,19 +159,38 @@ contract SCEngine is ReentrancyGuard {
     function _checkUserHealthFactor(address user) internal view {
         // Get user health factor
         // If below 1, revert
+        uint256 healthFactor = _getUserHealthFactor(user);
+
+        if (healthFactor < MIN_HEALTH_FACTOR) {
+            revert SCEngine__NotEnoughCollateral();
+        }
     }
 
     /*
     * Returns how close the user is to being liquidated
     * @param userAddress The address of the user
     */
-    function _getUserHealthFactor(address user) internal view {
+    function _getUserHealthFactor(address user) internal view returns (uint256) {
         (uint256 totalSCMinted, uint256 totalCollateralValueInUSD) = _getAccountInformation(user);
+        uint256 collateralAdjustesForThreshold =
+            (totalCollateralValueInUSD * LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISION;
+        return (collateralAdjustesForThreshold * PRECISION) / totalSCMinted;
     }
 
     function getCollateralValue(address user) public view returns (uint256) {
+        uint256 totalCollateralValueInUSD = 0;
         for (uint256 i = 0; i < s_tokenCollateralAddresses.length; i++) {
             // get price feed
+            address token = s_tokenCollateralAddresses[i];
+            uint256 amount = s_collateralBalances[user][token];
+            totalCollateralValueInUSD += getUsdValue(token, amount);
         }
+        return totalCollateralValueInUSD;
+    }
+
+    function getUsdValue(address token, uint256 amount) public view returns (uint256) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
+        (, int256 price,,,) = priceFeed.latestRoundData();
+        return (uint256(price) * ADDITIONAL_PRICE_FEE_PRECISION * amount) / PRECISION;
     }
 }

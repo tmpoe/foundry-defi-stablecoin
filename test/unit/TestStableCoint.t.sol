@@ -15,7 +15,7 @@ contract TestStableCoin is Test {
     function setUp() external {
         DeployStableCoin deployStableCoin = new DeployStableCoin();
         (stableCoin, config) = deployStableCoin.run();
-        deployerKey = config.activeNetworkConfig();
+        (, , , , deployerKey) = config.activeNetworkConfig();
     }
 
     /*

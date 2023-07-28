@@ -111,7 +111,9 @@ contract SCEngine is ReentrancyGuard {
      * @notice Follows CEI
      * @param amountToMint The amount of stable coins to mint
      */
-    function mintSC(uint256 amountToMint) external nonReentrant {
+    function mintSC(
+        uint256 amountToMint
+    ) external nonReentrant moreThanZero(amountToMint) {
         s_SCMinted[msg.sender] += amountToMint;
         _checkUserHealthFactor(msg.sender);
         bool success = i_stableCoin.mint(msg.sender, amountToMint);

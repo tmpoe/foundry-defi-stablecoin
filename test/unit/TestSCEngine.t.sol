@@ -64,6 +64,24 @@ contract TestSCEngine is Test {
     }
 
     /*
+     * GIVEN: A user with enough collateral outside of engine
+     * WHEN: A user calls deposit collateral
+     * THEN: Zero can't be deposited
+     */
+    function test_cantDepositZero()
+        public
+        mintCollateralForUser(USER)
+        allowEngineForCollateral(USER, COLLATERAL_AMOUNT)
+    {
+        assert(scEngine.getCollateralValue(USER) == 0);
+        vm.startBroadcast(USER);
+        vm.expectRevert(SCEngine.SCEngine__MustBeMoreThanZero.selector);
+        scEngine.depositCollateral(weth, 0);
+        vm.stopBroadcast();
+        assert(scEngine.getCollateralValue(USER) == 0);
+    }
+
+    /*
      * GIVEN: A user with enough collateral deposited
      * WHEN: User calls mint with half the value of collateral
      * THEN: Can mint
@@ -98,6 +116,24 @@ contract TestSCEngine is Test {
         scEngine.mintSC((DEPOSITED_USD_VALUE / 2) + 1);
         vm.stopBroadcast();
         assert(scEngine.getCollateralValue(USER) > 0);
+    }
+
+    /*
+     * GIVEN: A user with enough collateral deposited
+     * WHEN: User calls mint with 0
+     * THEN: Can't mint 0
+     */
+    function test_cantMintZero()
+        public
+        mintCollateralForUser(USER)
+        allowEngineForCollateral(USER, COLLATERAL_AMOUNT)
+        depositCollateral(USER, COLLATERAL_AMOUNT)
+    {
+        assert(scEngine.getCollateralValue(USER) > 0);
+        vm.startBroadcast(USER);
+        vm.expectRevert(SCEngine.SCEngine__MustBeMoreThanZero.selector);
+        scEngine.mintSC(0);
+        vm.stopBroadcast();
     }
 
     modifier mintCollateralForUser(address user) {

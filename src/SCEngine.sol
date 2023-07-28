@@ -26,6 +26,7 @@ pragma solidity ^0.8.20;
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import {console} from "forge-std/console.sol";
 
 import {StableCoin} from "./StableCoin.sol";
 
@@ -65,7 +66,7 @@ contract SCEngine is ReentrancyGuard {
     uint256 private constant PRECISION = 1e18;
     uint256 private constant LIQUIDATION_THRESHOLD = 50;
     uint256 private constant LIQUIDATION_PRECISION = 100;
-    uint256 private constant MIN_HEALTH_FACTOR = 1;
+    uint256 private constant MIN_HEALTH_FACTOR = 1e18;
 
     event CollateralDeposited(
         address indexed depositor,
@@ -174,7 +175,7 @@ contract SCEngine is ReentrancyGuard {
         // Get user health factor
         // If below 1, revert
         uint256 healthFactor = _getUserHealthFactor(user);
-
+        console.log("Health factor: %s", healthFactor);
         if (healthFactor < MIN_HEALTH_FACTOR) {
             revert SCEngine__NotEnoughCollateral();
         }

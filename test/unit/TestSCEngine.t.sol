@@ -76,7 +76,26 @@ contract TestSCEngine is Test {
     {
         assert(scEngine.getCollateralValue(USER) > 0);
         vm.startBroadcast(USER);
-        scEngine.mintSC(1000000000000000000);
+        scEngine.mintSC(COLLATERAL_AMOUNT);
+        vm.stopBroadcast();
+        assert(scEngine.getCollateralValue(USER) > 0);
+    }
+
+    /*
+     * GIVEN: A user with not enough collateral deposited
+     * WHEN: User calls mint with half + 1 the value of collateral
+     * THEN: Can mint
+     */
+    function test_cantMintAboveTwiceCollateral()
+        public
+        mintCollateralForUser(USER)
+        allowEngineForCollateral(USER, COLLATERAL_AMOUNT)
+        depositCollateral(USER, COLLATERAL_AMOUNT)
+    {
+        assert(scEngine.getCollateralValue(USER) > 0);
+        vm.startBroadcast(USER);
+        vm.expectRevert(SCEngine.SCEngine__NotEnoughCollateral.selector);
+        scEngine.mintSC((DEPOSITED_USD_VALUE / 2) + 1);
         vm.stopBroadcast();
         assert(scEngine.getCollateralValue(USER) > 0);
     }

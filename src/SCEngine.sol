@@ -53,7 +53,8 @@ contract SCEngine is ReentrancyGuard {
     error SCEngine__MintFailed();
 
     mapping(address => address) private s_priceFeeds;
-    mapping(address => mapping(address => uint256)) private s_collateralBalances;
+    mapping(address => mapping(address => uint256))
+        private s_collateralBalances;
     mapping(address => uint256) private s_SCMinted;
 
     address[] private s_tokenCollateralAddresses;
@@ -66,7 +67,11 @@ contract SCEngine is ReentrancyGuard {
     uint256 private constant LIQUIDATION_PRECISION = 100;
     uint256 private constant MIN_HEALTH_FACTOR = 1;
 
-    event CollateralDeposited(address indexed depositor, address indexed tokenCollateralAddress, uint256 amount);
+    event CollateralDeposited(
+        address indexed depositor,
+        address indexed tokenCollateralAddress,
+        uint256 amount
+    );
 
     modifier moreThanZero(uint256 amount) {
         if (amount <= 0) {
@@ -105,10 +110,10 @@ contract SCEngine is ReentrancyGuard {
      * @notice Follows CEI
      * @param amountToMint The amount of stable coins to mint
      */
-    function mintSc(uint256 amountToMint) external nonReentrant {
+    function mintSC(uint256 amountToMint) external nonReentrant {
         s_SCMinted[msg.sender] += amountToMint;
         _checkUserHealthFactor(msg.sender);
-        (bool success) = i_stableCoin.mint(msg.sender, amountToMint);
+        bool success = i_stableCoin.mint(msg.sender, amountToMint);
         if (!success) {
             revert SCEngine__MintFailed();
         }
@@ -119,11 +124,14 @@ contract SCEngine is ReentrancyGuard {
     function redeemSCForCollateral() external {}
 
     /*
-    * @notice Followes CEI
+     * @notice Followes CEI
      * @param tokenCollateralAddress The address of the collateral token
      * @param amount The amount of collateral to deposit
      */
-    function depositCollateral(address tokenCollateralAddress, uint256 amount)
+    function depositCollateral(
+        address tokenCollateralAddress,
+        uint256 amount
+    )
         external
         moreThanZero(amount)
         isAllowedTokenCollateral(tokenCollateralAddress)
@@ -135,7 +143,11 @@ contract SCEngine is ReentrancyGuard {
         emit CollateralDeposited(msg.sender, tokenCollateralAddress, amount);
 
         // Interactions
-        bool success = IERC20(tokenCollateralAddress).transferFrom(msg.sender, address(this), amount);
+        bool success = IERC20(tokenCollateralAddress).transferFrom(
+            msg.sender,
+            address(this),
+            amount
+        );
         if (!success) {
             revert SCEngine__TransferFailed();
         }
@@ -147,7 +159,9 @@ contract SCEngine is ReentrancyGuard {
 
     function getHealthFactor() external view {}
 
-    function _getAccountInformation(address user)
+    function _getAccountInformation(
+        address user
+    )
         private
         view
         returns (uint256 totalSCMinted, uint256 totalCollateralValueInUSD)
@@ -167,13 +181,18 @@ contract SCEngine is ReentrancyGuard {
     }
 
     /*
-    * Returns how close the user is to being liquidated
-    * @param userAddress The address of the user
-    */
-    function _getUserHealthFactor(address user) internal view returns (uint256) {
-        (uint256 totalSCMinted, uint256 totalCollateralValueInUSD) = _getAccountInformation(user);
-        uint256 collateralAdjustesForThreshold =
-            (totalCollateralValueInUSD * LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISION;
+     * Returns how close the user is to being liquidated
+     * @param userAddress The address of the user
+     */
+    function _getUserHealthFactor(
+        address user
+    ) internal view returns (uint256) {
+        (
+            uint256 totalSCMinted,
+            uint256 totalCollateralValueInUSD
+        ) = _getAccountInformation(user);
+        uint256 collateralAdjustesForThreshold = (totalCollateralValueInUSD *
+            LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISION;
         return (collateralAdjustesForThreshold * PRECISION) / totalSCMinted;
     }
 
@@ -188,9 +207,16 @@ contract SCEngine is ReentrancyGuard {
         return totalCollateralValueInUSD;
     }
 
-    function getUsdValue(address token, uint256 amount) public view returns (uint256) {
-        AggregatorV3Interface priceFeed = AggregatorV3Interface(s_priceFeeds[token]);
-        (, int256 price,,,) = priceFeed.latestRoundData();
-        return (uint256(price) * ADDITIONAL_PRICE_FEE_PRECISION * amount) / PRECISION;
+    function getUsdValue(
+        address token,
+        uint256 amount
+    ) public view returns (uint256) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(
+            s_priceFeeds[token]
+        );
+        (, int256 price, , , ) = priceFeed.latestRoundData();
+        return
+            (uint256(price) * ADDITIONAL_PRICE_FEE_PRECISION * amount) /
+            PRECISION;
     }
 }

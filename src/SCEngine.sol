@@ -160,7 +160,9 @@ contract SCEngine is ReentrancyGuard {
 
     function liquidate() external {}
 
-    function getHealthFactor() external view {}
+    function getHealthFactor(address user) external view returns (uint256) {
+        return _getUserHealthFactor(user);
+    }
 
     function _getAccountInformation(
         address user
@@ -194,6 +196,12 @@ contract SCEngine is ReentrancyGuard {
             uint256 totalSCMinted,
             uint256 totalCollateralValueInUSD
         ) = _getAccountInformation(user);
+        console.log("Total SC minted: %s", totalSCMinted);
+        console.log(
+            "Total collateral value in USD: %s",
+            totalCollateralValueInUSD
+        );
+        if (totalSCMinted == 0) return type(uint256).max;
         uint256 collateralAdjustesForThreshold = (totalCollateralValueInUSD *
             LIQUIDATION_THRESHOLD) / LIQUIDATION_PRECISION;
         return (collateralAdjustesForThreshold * PRECISION) / totalSCMinted;
@@ -221,5 +229,9 @@ contract SCEngine is ReentrancyGuard {
         return
             (uint256(price) * ADDITIONAL_PRICE_FEE_PRECISION * amount) /
             PRECISION;
+    }
+
+    function getMinHealthFactor() external pure returns (uint256) {
+        return MIN_HEALTH_FACTOR;
     }
 }

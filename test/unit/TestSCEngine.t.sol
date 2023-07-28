@@ -136,6 +136,57 @@ contract TestSCEngine is Test {
         vm.stopBroadcast();
     }
 
+    /*
+     * GIVEN: A user with 2000 dollar worth of collateral and 1000 SC
+     * WHEN: Healt factor is queried
+     * THEN: Health factor is max
+     */
+    function test_minHealthyHealthFactor()
+        public
+        mintCollateralForUser(USER)
+        allowEngineForCollateral(USER, COLLATERAL_AMOUNT)
+        depositCollateral(USER, COLLATERAL_AMOUNT)
+        mintSC(USER, DEPOSITED_USD_VALUE / 2)
+    {
+        vm.startBroadcast(USER);
+        assert(scEngine.getHealthFactor(USER) == 1e18);
+        vm.stopBroadcast();
+    }
+
+    /*
+     * GIVEN: A user with 2000 dollar worth of collateral and 1001 SC
+     * WHEN: Healt factor is queried
+     * THEN: Health factor is max
+     */
+    function test_justBelowMinHealthyHealthFactor()
+        public
+        mintCollateralForUser(USER)
+        allowEngineForCollateral(USER, COLLATERAL_AMOUNT)
+        depositCollateral(USER, COLLATERAL_AMOUNT)
+        mintSC(USER, (DEPOSITED_USD_VALUE / 2) + 1)
+    {
+        // TODO this cannot be tested as of now. Think how to decouple if it makes sense from minting itself.
+        vm.startBroadcast(USER);
+        assert(scEngine.getHealthFactor(USER) == 1e18);
+        vm.stopBroadcast();
+    }
+
+    /*
+     * GIVEN: A user with 2000 dollar worth of collateral and no SC
+     * WHEN: Healt factor is queried
+     * THEN: Health factor is max
+     */
+    function test_maxHealthFactor()
+        public
+        mintCollateralForUser(USER)
+        allowEngineForCollateral(USER, COLLATERAL_AMOUNT)
+        depositCollateral(USER, COLLATERAL_AMOUNT)
+    {
+        vm.startBroadcast(USER);
+        assert(scEngine.getHealthFactor(USER) == type(uint256).max);
+        vm.stopBroadcast();
+    }
+
     modifier mintCollateralForUser(address user) {
         vm.startBroadcast(deployerKey);
         ERC20Mock(weth).mint(user, COLLATERAL_AMOUNT);
@@ -159,6 +210,13 @@ contract TestSCEngine is Test {
         uint256 collateralValue = scEngine.getCollateralValue(user);
         console.log(collateralValue);
         assert(collateralValue == DEPOSITED_USD_VALUE);
+        vm.stopBroadcast();
+        _;
+    }
+
+    modifier mintSC(address user, uint256 amount) {
+        vm.startBroadcast(user);
+        scEngine.mintSC(amount);
         vm.stopBroadcast();
         _;
     }

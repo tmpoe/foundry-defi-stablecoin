@@ -21,6 +21,10 @@ contract TestSCEngine is Test {
     address constant USER = address(1337);
     uint256 constant COLLATERAL_AMOUNT = 1e18;
     uint256 constant DEPOSITED_USD_VALUE = 2e21; // 2000 USD
+    uint256 constant MINT_USD_VALUE_TO_MINT_WITH_ONE_COLLATERAL =
+        DEPOSITED_USD_VALUE / 4;
+    uint256 constant MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL =
+        DEPOSITED_USD_VALUE / 2;
 
     function setUp() external {
         DeploySCEngine deploySCEngine = new DeploySCEngine();
@@ -113,7 +117,7 @@ contract TestSCEngine is Test {
         assert(scEngine.getCollateralValue(USER) > 0);
         vm.startBroadcast(USER);
         vm.expectRevert(SCEngine.SCEngine__NotEnoughCollateral.selector);
-        scEngine.mintSC((DEPOSITED_USD_VALUE / 2) + 1);
+        scEngine.mintSC((MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL) + 1);
         vm.stopBroadcast();
         assert(scEngine.getCollateralValue(USER) > 0);
     }
@@ -137,6 +141,29 @@ contract TestSCEngine is Test {
     }
 
     /*
+     * GIVEN: A user
+     * WHEN: User calls deposit and mint
+     * THEN: Can deposit and mint
+     */
+    function test_canDepositAndMint()
+        public
+        mintCollateralForUser(USER)
+        allowEngineForCollateral(USER, COLLATERAL_AMOUNT)
+    {
+        vm.startBroadcast(USER);
+        scEngine.mintSCWithCollateral(
+            weth,
+            COLLATERAL_AMOUNT,
+            MINT_USD_VALUE_TO_MINT_WITH_ONE_COLLATERAL
+        );
+        vm.stopBroadcast();
+        assert(
+            scEngine.getSCBalance(USER) ==
+                MINT_USD_VALUE_TO_MINT_WITH_ONE_COLLATERAL
+        );
+    }
+
+    /*
      * GIVEN: A user with 2000 dollar worth of collateral and 1000 SC
      * WHEN: Healt factor is queried
      * THEN: Health factor is max
@@ -146,7 +173,7 @@ contract TestSCEngine is Test {
         mintCollateralForUser(USER)
         allowEngineForCollateral(USER, COLLATERAL_AMOUNT)
         depositCollateral(USER, COLLATERAL_AMOUNT)
-        mintSC(USER, DEPOSITED_USD_VALUE / 2)
+        mintSC(USER, MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL)
     {
         vm.startBroadcast(USER);
         assert(scEngine.getHealthFactor(USER) == 1e18);
@@ -163,7 +190,7 @@ contract TestSCEngine is Test {
         mintCollateralForUser(USER)
         allowEngineForCollateral(USER, COLLATERAL_AMOUNT)
         depositCollateral(USER, COLLATERAL_AMOUNT)
-        mintSC(USER, (DEPOSITED_USD_VALUE / 2) + 1)
+        mintSC(USER, (MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL) + 1)
     {
         // TODO this cannot be tested as of now. Think how to decouple if it makes sense from minting itself.
         vm.startBroadcast(USER);
@@ -209,6 +236,7 @@ contract TestSCEngine is Test {
         scEngine.depositCollateral(wbtc, amount);
         uint256 collateralValue = scEngine.getCollateralValue(user);
         console.log(collateralValue);
+        // TODO this wont work on other networks but the local mock env
         assert(collateralValue == DEPOSITED_USD_VALUE);
         vm.stopBroadcast();
         _;

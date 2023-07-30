@@ -105,7 +105,14 @@ contract SCEngine is ReentrancyGuard {
         i_stableCoin = StableCoin(stableCoinAddress);
     }
 
-    function mintSCWithCollateral() external {}
+    function mintSCWithCollateral(
+        address tokenCollateralAddress,
+        uint256 amountCollateral,
+        uint256 amountSCToMint
+    ) external {
+        depositCollateral(tokenCollateralAddress, amountCollateral);
+        mintSC(amountSCToMint);
+    }
 
     /*
      * @notice Follows CEI
@@ -113,7 +120,7 @@ contract SCEngine is ReentrancyGuard {
      */
     function mintSC(
         uint256 amountToMint
-    ) external nonReentrant moreThanZero(amountToMint) {
+    ) public nonReentrant moreThanZero(amountToMint) {
         s_SCMinted[msg.sender] += amountToMint;
         _checkUserHealthFactor(msg.sender);
         bool success = i_stableCoin.mint(msg.sender, amountToMint);
@@ -135,7 +142,7 @@ contract SCEngine is ReentrancyGuard {
         address tokenCollateralAddress,
         uint256 amount
     )
-        external
+        public
         moreThanZero(amount)
         isAllowedTokenCollateral(tokenCollateralAddress)
         nonReentrant
@@ -233,5 +240,9 @@ contract SCEngine is ReentrancyGuard {
 
     function getMinHealthFactor() external pure returns (uint256) {
         return MIN_HEALTH_FACTOR;
+    }
+
+    function getSCBalance(address user) external view returns (uint256) {
+        return s_SCMinted[user];
     }
 }

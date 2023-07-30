@@ -105,6 +105,12 @@ contract SCEngine is ReentrancyGuard {
         i_stableCoin = StableCoin(stableCoinAddress);
     }
 
+    /*
+     * @param tokenCollateralAddress The address of the collateral token
+     * @param amountCollateral The amount of collateral to deposit
+     * @param amountSCToMint The amount of stable coins to mint
+     * @notice Will deposit collateral and mint stable coins
+     */
     function mintSCWithCollateral(
         address tokenCollateralAddress,
         uint256 amountCollateral,

@@ -158,7 +158,7 @@ contract TestSCEngine is Test {
      * WHEN: Healt factor is queried
      * THEN: Health factor is max
      */
-    function test_justBelowMinHealthyHealthFactor()
+    function justBelowMinHealthyHealthFactor()
         public
         mintCollateralForUser(USER)
         allowEngineForCollateral(USER, COLLATERAL_AMOUNT)

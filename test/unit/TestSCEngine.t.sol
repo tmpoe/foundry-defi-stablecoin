@@ -116,7 +116,7 @@ contract TestSCEngine is Test {
     {
         assert(scEngine.getCollateralValue(USER) > 0);
         vm.startBroadcast(USER);
-        vm.expectRevert(SCEngine.SCEngine__NotEnoughCollateral.selector);
+        vm.expectRevert(SCEngine.SCEngine__WouldBreakHealthFactor.selector);
         scEngine.mintSC((MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL) + 1);
         vm.stopBroadcast();
         assert(scEngine.getCollateralValue(USER) > 0);

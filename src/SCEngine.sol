@@ -52,6 +52,8 @@ contract SCEngine is ReentrancyGuard {
     error SCEngine__TransferFailed();
     error SCEngine__WouldBreakHealthFactor();
     error SCEngine__MintFailed();
+    error SCEngine__HealthFactorOk();
+    error SCEngine__HealthFactorStillBroken();
 
     mapping(address => address) private s_priceFeeds;
     mapping(address => mapping(address => uint256))
@@ -67,6 +69,7 @@ contract SCEngine is ReentrancyGuard {
     uint256 private constant LIQUIDATION_THRESHOLD = 50;
     uint256 private constant LIQUIDATION_PRECISION = 100;
     uint256 private constant MIN_HEALTH_FACTOR = 1e18;
+    uint256 private constant LIQUIDATION_BONUS = 10; //%
 
     event CollateralDeposited(
         address indexed depositor,
@@ -75,6 +78,7 @@ contract SCEngine is ReentrancyGuard {
     );
 
     event CollateralRedeemed(
+        address indexed from,
         address indexed redeemer,
         address indexed tokenCollateralAddress,
         uint256 amount
@@ -150,17 +154,8 @@ contract SCEngine is ReentrancyGuard {
         nonReentrant
         moreThanZero(amountToRedeem)
     {
-        // Will automatically revert if not enough collateral - safemaths
-        s_collateralBalances[msg.sender][collateral] -= amountToRedeem;
-
+        _redeemCollateral(collateral, amountToRedeem, msg.sender, msg.sender);
         _checkUserHealthFactor(msg.sender);
-
-        emit CollateralRedeemed(msg.sender, collateral, amountToRedeem);
-
-        bool success = IERC20(collateral).transfer(msg.sender, amountToRedeem);
-        if (!success) {
-            revert SCEngine__TransferFailed();
-        }
     }
 
     /*
@@ -210,18 +205,7 @@ contract SCEngine is ReentrancyGuard {
     }
 
     function burnSC(uint256 amount) public moreThanZero(amount) {
-        s_SCMinted[msg.sender] -= amount;
-        bool success = i_stableCoin.transferFrom(
-            msg.sender,
-            address(this),
-            amount
-        );
-
-        if (!success) {
-            revert SCEngine__TransferFailed();
-        }
-
-        i_stableCoin.burn(amount);
+        _burnSC(msg.sender, amount);
     }
 
     /*
@@ -233,7 +217,79 @@ contract SCEngine is ReentrancyGuard {
         address collateral,
         address user,
         uint256 debtToCover
-    ) external {}
+    ) external moreThanZero(debtToCover) {
+        uint256 startingHealthFactor = _getUserHealthFactor(user);
+
+        if (startingHealthFactor >= MIN_HEALTH_FACTOR) {
+            revert SCEngine__HealthFactorOk();
+        }
+
+        uint256 tokenAmountFromDebtCovered = _getTokenAmountFromUsd(
+            collateral,
+            debtToCover
+        );
+
+        uint256 collateralBonus = tokenAmountFromDebtCovered /
+            LIQUIDATION_BONUS; // is this dangerous? will test
+
+        _redeemCollateral(
+            collateral,
+            tokenAmountFromDebtCovered + collateralBonus,
+            user,
+            msg.sender
+        );
+        _burnSC(user, debtToCover);
+
+        uint256 endingHealthFactor = _getUserHealthFactor(user);
+
+        if (endingHealthFactor < MIN_HEALTH_FACTOR) {
+            revert SCEngine__HealthFactorStillBroken();
+        }
+    }
+
+    function _getTokenAmountFromUsd(
+        address collateral,
+        uint256 usdAmountInWei
+    ) private view returns (uint256) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(
+            s_priceFeeds[collateral]
+        );
+        (, int256 price, , , ) = priceFeed.latestRoundData();
+        // wei * 10^18 / 10^8 * 10^10 -> wei will be in wei magnitude
+        return
+            (usdAmountInWei * PRECISION) /
+            (uint256(price) * ADDITIONAL_PRICE_FEE_PRECISION);
+    }
+
+    function _redeemCollateral(
+        address collateral,
+        uint256 collateralToRedeem,
+        address from,
+        address to
+    ) private {
+        // Will automatically revert if not enough collateral - safemaths
+        s_collateralBalances[from][collateral] -= collateralToRedeem;
+        _checkUserHealthFactor(from);
+
+        emit CollateralRedeemed(from, to, collateral, collateralToRedeem);
+
+        bool success = IERC20(collateral).transfer(to, collateralToRedeem);
+
+        if (!success) {
+            revert SCEngine__TransferFailed();
+        }
+    }
+
+    function _burnSC(address from, uint256 amount) private {
+        s_SCMinted[from] -= amount;
+        bool success = i_stableCoin.transferFrom(from, address(this), amount);
+
+        if (!success) {
+            revert SCEngine__TransferFailed();
+        }
+
+        i_stableCoin.burn(amount);
+    }
 
     function _getAccountInformation(
         address user

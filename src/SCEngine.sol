@@ -371,4 +371,16 @@ contract SCEngine is ReentrancyGuard {
     function getSCBalance(address user) external view returns (uint256) {
         return s_SCMinted[user];
     }
+
+    function getAccountInformation(
+        address user
+    )
+        external
+        view
+        returns (uint256 totalScMinted, uint256 totalCollateralValueInUSD)
+    {
+        (totalScMinted, totalCollateralValueInUSD) = _getAccountInformation(
+            user
+        );
+    }
 }

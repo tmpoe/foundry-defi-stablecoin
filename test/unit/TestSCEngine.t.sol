@@ -32,6 +32,31 @@ contract TestSCEngine is Test {
         (, , weth, wbtc, deployerKey) = config.activeNetworkConfig();
     }
 
+    address[] public tokens;
+    address[] public priceFeeds;
+
+    /*
+     * GIVEN: An SCEngine contract
+     * WHEN: SCEngine is instantiated with mismatching token and price feed lengths
+     * THEN: Instantiation reverts
+     */
+    function test_constructorRevertsIfTokensAndPriceFeedsLengthDontMatch()
+        public
+    {
+        tokens.push(address(0));
+        priceFeeds.push(address(0));
+        priceFeeds.push(address(0));
+        StableCoin stableCoin = new StableCoin();
+        vm.startBroadcast(deployerKey);
+        vm.expectRevert(
+            SCEngine
+                .SCEngine__TokenAddressesAndPriceFeedAddressesMustBeEqualLengths
+                .selector
+        );
+        new SCEngine(tokens, priceFeeds, address(stableCoin));
+        vm.stopBroadcast();
+    }
+
     /*
      * GIVEN: A user with enough collateral outside of engine
      * WHEN: User calls deposit collateral
@@ -42,7 +67,7 @@ contract TestSCEngine is Test {
         mintCollateralForUser(USER)
         allowEngineForCollateral(USER, COLLATERAL_AMOUNT)
     {
-        assert(scEngine.getCollateralValue(USER) == 0);
+        assertEq(scEngine.getCollateralValue(USER), 0);
         vm.startBroadcast(USER);
         scEngine.depositCollateral(weth, COLLATERAL_AMOUNT);
         vm.stopBroadcast();
@@ -59,12 +84,24 @@ contract TestSCEngine is Test {
         mintCollateralForUser(USER)
         allowEngineForCollateral(USER, COLLATERAL_AMOUNT)
     {
-        assert(scEngine.getCollateralValue(USER) == 0);
+        assertEq(scEngine.getCollateralValue(USER), 0);
         vm.startBroadcast(USER);
         vm.expectRevert();
         scEngine.depositCollateral(weth, COLLATERAL_AMOUNT * 10);
         vm.stopBroadcast();
-        assert(scEngine.getCollateralValue(USER) == 0);
+        assertEq(scEngine.getCollateralValue(USER), 0);
+    }
+
+    /*
+     * GIVEN: -
+     * WHEN: User calls deposit with unallowed collateral
+     * THEN: Collateral is not deposited (tx is reverted)
+     */
+    function test_cantDepositUnallowedCollateral() public {
+        vm.startBroadcast(USER);
+        vm.expectRevert(SCEngine.SCEngine__NotAllowedTokenCollateral.selector);
+        scEngine.depositCollateral(address(0), COLLATERAL_AMOUNT);
+        vm.stopBroadcast();
     }
 
     /*
@@ -77,12 +114,12 @@ contract TestSCEngine is Test {
         mintCollateralForUser(USER)
         allowEngineForCollateral(USER, COLLATERAL_AMOUNT)
     {
-        assert(scEngine.getCollateralValue(USER) == 0);
+        assertEq(scEngine.getCollateralValue(USER), 0);
         vm.startBroadcast(USER);
         vm.expectRevert(SCEngine.SCEngine__MustBeMoreThanZero.selector);
         scEngine.depositCollateral(weth, 0);
         vm.stopBroadcast();
-        assert(scEngine.getCollateralValue(USER) == 0);
+        assertEq(scEngine.getCollateralValue(USER), 0);
     }
 
     /*
@@ -157,9 +194,9 @@ contract TestSCEngine is Test {
             MINT_USD_VALUE_TO_MINT_WITH_ONE_COLLATERAL
         );
         vm.stopBroadcast();
-        assert(
-            scEngine.getSCBalance(USER) ==
-                MINT_USD_VALUE_TO_MINT_WITH_ONE_COLLATERAL
+        assertEq(
+            scEngine.getSCBalance(USER),
+            MINT_USD_VALUE_TO_MINT_WITH_ONE_COLLATERAL
         );
     }
 
@@ -176,7 +213,7 @@ contract TestSCEngine is Test {
         mintSC(USER, MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL)
     {
         vm.startBroadcast(USER);
-        assert(scEngine.getHealthFactor(USER) == 1e18);
+        assertEq(scEngine.getHealthFactor(USER), 1e18);
         vm.stopBroadcast();
     }
 
@@ -194,7 +231,7 @@ contract TestSCEngine is Test {
     {
         // TODO this cannot be tested as of now. Think how to decouple if it makes sense from minting itself.
         vm.startBroadcast(USER);
-        assert(scEngine.getHealthFactor(USER) == 1e18);
+        assertEq(scEngine.getHealthFactor(USER), 1e18);
         vm.stopBroadcast();
     }
 
@@ -210,8 +247,30 @@ contract TestSCEngine is Test {
         depositCollateral(USER, COLLATERAL_AMOUNT)
     {
         vm.startBroadcast(USER);
-        assert(scEngine.getHealthFactor(USER) == type(uint256).max);
+        assertEq(scEngine.getHealthFactor(USER), type(uint256).max);
         vm.stopBroadcast();
+    }
+
+    /*
+     * GIVEN: A pricefeed with 1 eth = 1000 usd
+     * WHEN: We query the usd value of 1 eth
+     * THEN: We get 1000 usd
+     */
+    function test_getUsdValue() public {
+        assertEq(scEngine.getUsdValue(weth, 1 ether), 1000 ether);
+    }
+
+    function test_getAccountInformationZero()
+        public
+        mintCollateralForUser(USER)
+        allowEngineForCollateral(USER, COLLATERAL_AMOUNT)
+        depositCollateral(USER, COLLATERAL_AMOUNT)
+        mintSC(USER, MINT_USD_VALUE_TO_MINT_WITH_ONE_COLLATERAL)
+    {
+        (uint256 totalSCMinted, uint256 totalCollateralValue) = scEngine
+            .getAccountInformation(USER);
+        assertEq(totalSCMinted, MINT_USD_VALUE_TO_MINT_WITH_ONE_COLLATERAL);
+        assertEq(totalCollateralValue, DEPOSITED_USD_VALUE);
     }
 
     modifier mintCollateralForUser(address user) {
@@ -237,7 +296,7 @@ contract TestSCEngine is Test {
         uint256 collateralValue = scEngine.getCollateralValue(user);
         console.log(collateralValue);
         // TODO this wont work on other networks but the local mock env
-        assert(collateralValue == DEPOSITED_USD_VALUE);
+        assertEq(collateralValue, DEPOSITED_USD_VALUE);
         vm.stopBroadcast();
         _;
     }

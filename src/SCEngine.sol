@@ -172,8 +172,6 @@ contract SCEngine is ReentrancyGuard {
         redeemCollateral(collateral, collateralAmountToRedeem);
     }
 
-    function redeemSCForCollateral() external {}
-
     /*
      * @notice Followes CEI
      * @param collateral The address of the collateral token
@@ -280,6 +278,10 @@ contract SCEngine is ReentrancyGuard {
         }
     }
 
+    /*
+     * @dev Make sure whatever calls this method also checks health factor. Health factor
+     * shall not be broken
+     */
     function _burnSC(address from, uint256 amount) private {
         s_SCMinted[from] -= amount;
         bool success = i_stableCoin.transferFrom(from, address(this), amount);

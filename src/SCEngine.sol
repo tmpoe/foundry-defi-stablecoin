@@ -377,10 +377,14 @@ contract SCEngine is ReentrancyGuard {
     )
         external
         view
-        returns (uint256 totalScMinted, uint256 totalCollateralValueInUSD)
+        returns (uint256 totalSCMinted, uint256 totalCollateralValueInUSD)
     {
-        (totalScMinted, totalCollateralValueInUSD) = _getAccountInformation(
+        (totalSCMinted, totalCollateralValueInUSD) = _getAccountInformation(
             user
         );
+    }
+
+    function getStableCoinAddress() public view returns (address) {
+        return address(i_stableCoin);
     }
 }

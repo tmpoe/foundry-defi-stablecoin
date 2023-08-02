@@ -17,6 +17,7 @@ contract TestSCEngine is Test {
     SCEngine scEngine;
     address weth;
     address wbtc;
+    StableCoin stableCoin;
 
     address constant USER = address(1337);
     uint256 constant COLLATERAL_AMOUNT = 1e18;
@@ -30,6 +31,7 @@ contract TestSCEngine is Test {
         DeploySCEngine deploySCEngine = new DeploySCEngine();
         (scEngine, config) = deploySCEngine.run();
         (, , weth, wbtc, deployerKey) = config.activeNetworkConfig();
+        stableCoin = StableCoin(scEngine.getStableCoinAddress());
     }
 
     address[] public tokens;
@@ -46,14 +48,14 @@ contract TestSCEngine is Test {
         tokens.push(address(0));
         priceFeeds.push(address(0));
         priceFeeds.push(address(0));
-        StableCoin stableCoin = new StableCoin();
+        StableCoin sc = new StableCoin();
         vm.startBroadcast(deployerKey);
         vm.expectRevert(
             SCEngine
                 .SCEngine__TokenAddressesAndPriceFeedAddressesMustBeEqualLengths
                 .selector
         );
-        new SCEngine(tokens, priceFeeds, address(stableCoin));
+        new SCEngine(tokens, priceFeeds, address(sc));
         vm.stopBroadcast();
     }
 
@@ -201,6 +203,63 @@ contract TestSCEngine is Test {
     }
 
     /*
+     * GIVEN: A user with 1000 SC
+     * WHEN: User calls burn with 1000 SC
+     * THEN: All tokens are burned
+     */
+    function test_canBurnSC()
+        public
+        mintCollateralForUser(USER)
+        allowEngineForCollateral(USER, COLLATERAL_AMOUNT)
+        depositCollateral(USER, COLLATERAL_AMOUNT)
+        mintSC(USER, MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL)
+    {
+        vm.startBroadcast(USER);
+        stableCoin.approve(
+            address(scEngine),
+            MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL
+        );
+        scEngine.burnSC(MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL);
+        vm.stopBroadcast();
+        assertEq(scEngine.getSCBalance(USER), 0);
+    }
+
+    /*
+     * GIVEN: A user with 1000 SC
+     * WHEN: User calls burn with 1000 SC without
+     *       allowing SC for the engine to transfer
+     * THEN: All tokens are burned
+     */
+    function test_cantBurnWithoutAllowance()
+        public
+        mintCollateralForUser(USER)
+        allowEngineForCollateral(USER, COLLATERAL_AMOUNT)
+        depositCollateral(USER, COLLATERAL_AMOUNT)
+        mintSC(USER, MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL)
+    {
+        vm.startBroadcast(USER);
+        vm.expectRevert();
+        scEngine.burnSC(MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL);
+        vm.stopBroadcast();
+        assertEq(
+            scEngine.getSCBalance(USER),
+            MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL
+        );
+    }
+
+    /*
+     * GIVEN: A healthy user
+     * WHEN: Someone calls liquidate on the user
+     * THEN: User is not liquidated (tx is reverted)
+     */
+    function test_cantLiquidateHealthyUser() public {
+        vm.startBroadcast(USER);
+        vm.expectRevert(SCEngine.SCEngine__HealthFactorOk.selector);
+        scEngine.liquidate(weth, USER, 1 ether);
+        vm.stopBroadcast();
+    }
+
+    /*
      * GIVEN: A user with 2000 dollar worth of collateral and 1000 SC
      * WHEN: Healt factor is queried
      * THEN: Health factor is max
@@ -294,7 +353,6 @@ contract TestSCEngine is Test {
         scEngine.depositCollateral(weth, amount);
         scEngine.depositCollateral(wbtc, amount);
         uint256 collateralValue = scEngine.getCollateralValue(user);
-        console.log(collateralValue);
         // TODO this wont work on other networks but the local mock env
         assertEq(collateralValue, DEPOSITED_USD_VALUE);
         vm.stopBroadcast();

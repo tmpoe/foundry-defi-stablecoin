@@ -371,6 +371,20 @@ contract TestSCEngine is Test {
     }
 
     /*
+     */
+    function test_canLiquidateUnHealthyUser() public {
+        // Use mockv3aggregator interface updateAnswer to simulate price change
+    }
+
+    /*
+     */
+    function test_cantLiquidateUnHealthyUserIfWouldNotImproveHealthFactor()
+        public
+    {
+        // Use mockv3aggregator interface updateAnswer to simulate price change
+    }
+
+    /*
      * GIVEN: A user with 2000 dollar worth of collateral and 1000 SC
      * WHEN: Healt factor is queried
      * THEN: Health factor is max

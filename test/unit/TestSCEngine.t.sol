@@ -5,6 +5,7 @@ pragma solidity ^0.8.20;
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
+import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
 
 import {StableCoin} from "../../src/StableCoin.sol";
 import {Config} from "../../script/Config.sol";
@@ -17,6 +18,7 @@ contract TestSCEngine is Test {
     SCEngine scEngine;
     address weth;
     address wbtc;
+    address wethPriceFeed;
     StableCoin stableCoin;
 
     address constant USER = address(1337);
@@ -30,7 +32,8 @@ contract TestSCEngine is Test {
     function setUp() external {
         DeploySCEngine deploySCEngine = new DeploySCEngine();
         (scEngine, config) = deploySCEngine.run();
-        (, , weth, wbtc, deployerKey) = config.activeNetworkConfig();
+        (wethPriceFeed, , weth, wbtc, deployerKey) = config
+            .activeNetworkConfig();
         stableCoin = StableCoin(scEngine.getStableCoinAddress());
     }
 
@@ -402,20 +405,20 @@ contract TestSCEngine is Test {
     }
 
     /*
-     * GIVEN: A user with 2000 dollar worth of collateral and 1001 SC
-     * WHEN: Healt factor is queried
-     * THEN: Health factor is max
+     * GIVEN: A user with 2000 dollar worth of collateral and 1000 SC
+     * WHEN: Weth price drops to 0
+     * THEN: Health factor below healthy
      */
-    function justBelowMinHealthyHealthFactor()
+    function test_belowMinHealthyHealthFactor()
         public
         mintCollateralForUser(USER)
         allowEngineForCollateral(USER, COLLATERAL_AMOUNT)
         depositCollateral(USER, COLLATERAL_AMOUNT)
-        mintSC(USER, (MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL) + 1)
+        mintSC(USER, MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL)
     {
-        // TODO this cannot be tested as of now. Think how to decouple if it makes sense from minting itself.
         vm.startBroadcast(USER);
-        assertEq(scEngine.getHealthFactor(USER), 1e18);
+        MockV3Aggregator(wethPriceFeed).updateAnswer(0);
+        assert(scEngine.getHealthFactor(USER) < scEngine.getMinHealthFactor());
         vm.stopBroadcast();
     }
 

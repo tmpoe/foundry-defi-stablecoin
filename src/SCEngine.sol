@@ -292,6 +292,7 @@ contract SCEngine is ReentrancyGuard {
     function _burnSC(address onBehalfOf, uint256 amount, address from) private {
         s_SCMinted[onBehalfOf] -= amount;
         console.log("Amount to burn: %s", amount);
+        console.log("Amount from address: %s", getSCBalance(from));
         bool success = i_stableCoin.transferFrom(from, address(this), amount);
 
         if (!success) {
@@ -299,6 +300,7 @@ contract SCEngine is ReentrancyGuard {
         }
 
         i_stableCoin.burn(amount);
+        console.log("Amount post burn from address: %s", getSCBalance(from));
     }
 
     function _getAccountInformation(
@@ -376,7 +378,7 @@ contract SCEngine is ReentrancyGuard {
         return MIN_HEALTH_FACTOR;
     }
 
-    function getSCBalance(address user) external view returns (uint256) {
+    function getSCBalance(address user) public view returns (uint256) {
         return s_SCMinted[user];
     }
 

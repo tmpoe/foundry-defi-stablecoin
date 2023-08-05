@@ -5,6 +5,7 @@ pragma solidity ^0.8.20;
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
+
 import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
 
 import {StableCoin} from "../../src/StableCoin.sol";
@@ -392,6 +393,7 @@ contract TestSCEngine is Test {
         mintSC(LIQUIDATOR, MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL)
     {
         // Use mockv3aggregator interface updateAnswer to simulate price change
+        uint256 starterLiquidatorBlance = ERC20Mock(weth).balanceOf(LIQUIDATOR);
         uint256 debtToCover = 500 ether; // 500 USD
         vm.startBroadcast(LIQUIDATOR);
         MockV3Aggregator(wethPriceFeed).updateAnswer(DROPPED_ETH_USD_PRICE);
@@ -400,14 +402,43 @@ contract TestSCEngine is Test {
         scEngine.liquidate(weth, USER, debtToCover);
         assert(scEngine.getHealthFactor(USER) >= scEngine.getMinHealthFactor());
         vm.stopBroadcast();
+        assertEq(scEngine.getSCBalance(USER), 500 ether);
+        (uint256 liquidatorSC, uint256 liquidatorCollateral) = scEngine
+            .getAccountInformation(LIQUIDATOR);
+        (uint256 userSC, uint256 userCollateral) = scEngine
+            .getAccountInformation(USER);
+
+        assertEq(liquidatorSC, 1000 ether);
+        assertEq(liquidatorCollateral, 1800 ether);
+        assertEq(userSC, 500 ether);
+        assertEq(userCollateral, 1250 ether);
+        assert(starterLiquidatorBlance < ERC20Mock(weth).balanceOf(LIQUIDATOR));
     }
 
     /*
      */
     function test_cantLiquidateUnHealthyUserIfWouldNotImproveHealthFactor()
         public
+        mintCollateralForUser(USER)
+        allowEngineForCollateral(USER, COLLATERAL_AMOUNT)
+        depositCollateral(USER, COLLATERAL_AMOUNT)
+        mintSC(USER, MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL)
+        mintCollateralForUser(LIQUIDATOR)
+        allowEngineForCollateral(LIQUIDATOR, COLLATERAL_AMOUNT)
+        depositCollateral(LIQUIDATOR, COLLATERAL_AMOUNT)
+        mintSC(LIQUIDATOR, MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL)
     {
         // Use mockv3aggregator interface updateAnswer to simulate price change
+        uint256 debtToCover = 10 ether; // 500 USD
+        vm.startBroadcast(LIQUIDATOR);
+        MockV3Aggregator(wethPriceFeed).updateAnswer(DROPPED_ETH_USD_PRICE);
+        assert(scEngine.getHealthFactor(USER) < scEngine.getMinHealthFactor());
+        stableCoin.approve(address(scEngine), debtToCover);
+        vm.expectRevert(SCEngine.SCEngine__HealthFactorStillBroken.selector);
+        scEngine.liquidate(weth, USER, debtToCover);
+        vm.stopBroadcast();
+        assert(scEngine.getHealthFactor(USER) < scEngine.getMinHealthFactor());
+        assertEq(scEngine.getSCBalance(USER), 1000 ether);
     }
 
     /*

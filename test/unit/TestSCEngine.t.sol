@@ -248,6 +248,117 @@ contract TestSCEngine is Test {
     }
 
     /*
+     * GIVEN: A user with 500 SC
+     * WHEN: User redeems 500 USD value of collateral with 1500 USD remaining
+     * THEN: Tokens were redeemed and total USD collateral value is 1500
+     */
+    function test_canRedeemCollateral()
+        public
+        mintCollateralForUser(USER)
+        allowEngineForCollateral(USER, COLLATERAL_AMOUNT)
+        depositCollateral(USER, COLLATERAL_AMOUNT)
+        mintSC(USER, MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL / 2)
+    {
+        vm.startBroadcast(USER);
+
+        scEngine.redeemCollateral(weth, COLLATERAL_AMOUNT / 2);
+        vm.stopBroadcast();
+        assertEq(
+            scEngine.getCollateralValue(USER),
+            DEPOSITED_USD_VALUE - (DEPOSITED_USD_VALUE / 4)
+        );
+    }
+
+    /*
+     * GIVEN: A user with 1000 SC
+     * WHEN: User redeems 1000 USD value of collateral with 1000 USD remaining
+     * THEN: Tokens are not redeemed as it would break health factor
+     */
+    function test_cantRedeemCollateralIfBreaksHealthFactor()
+        public
+        mintCollateralForUser(USER)
+        allowEngineForCollateral(USER, COLLATERAL_AMOUNT)
+        depositCollateral(USER, COLLATERAL_AMOUNT)
+        mintSC(USER, MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL)
+    {
+        vm.startBroadcast(USER);
+        vm.expectRevert(SCEngine.SCEngine__WouldBreakHealthFactor.selector);
+        scEngine.redeemCollateral(weth, COLLATERAL_AMOUNT);
+        vm.stopBroadcast();
+        assertEq(scEngine.getCollateralValue(USER), DEPOSITED_USD_VALUE);
+    }
+
+    /*
+     * GIVEN: A user with 1000 SC
+     * WHEN: User redeems 0 USD value of collateral with 2000 USD remaining
+     * THEN: Transaction is reverted
+     */
+    function test_cantRedeemZeroCollateral()
+        public
+        mintCollateralForUser(USER)
+        allowEngineForCollateral(USER, COLLATERAL_AMOUNT)
+        depositCollateral(USER, COLLATERAL_AMOUNT)
+        mintSC(USER, MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL)
+    {
+        vm.startBroadcast(USER);
+        vm.expectRevert(SCEngine.SCEngine__MustBeMoreThanZero.selector);
+        scEngine.redeemCollateral(weth, 0);
+        vm.stopBroadcast();
+        assertEq(scEngine.getCollateralValue(USER), DEPOSITED_USD_VALUE);
+    }
+
+    /*
+     * GIVEN: A user with 1000 SC
+     * WHEN: User burns 500 USD worth of SC and redeems 1000 USD
+     *       value of collateral with 1000 USD remaining
+     * THEN: User can reedem collateral
+     */
+    function test_canRedeemCollateralForSC()
+        public
+        mintCollateralForUser(USER)
+        allowEngineForCollateral(USER, COLLATERAL_AMOUNT)
+        depositCollateral(USER, COLLATERAL_AMOUNT)
+        mintSC(USER, MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL)
+    {
+        uint256 toBurn = MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL / 2;
+        vm.startBroadcast(USER);
+        stableCoin.approve(address(scEngine), toBurn);
+        scEngine.redeemCollateralForSC(toBurn, weth, COLLATERAL_AMOUNT);
+        vm.stopBroadcast();
+        assertEq(scEngine.getCollateralValue(USER), DEPOSITED_USD_VALUE / 2);
+        assertEq(
+            scEngine.getSCBalance(USER),
+            MINT_USD_VALUE_TO_MINT_WITH_ONE_COLLATERAL
+        );
+    }
+
+    /*
+     * GIVEN: A user with 1000 SC
+     * WHEN: User burns 1 USD worth of SC and redeems 1000 USD
+     *       value of collateral with 1000 USD remaining
+     * THEN: Transaction is reverted and balances are unchanged
+     */
+    function test_cantRedeemCollateralForSCIfWouldBreakHealthFactor()
+        public
+        mintCollateralForUser(USER)
+        allowEngineForCollateral(USER, COLLATERAL_AMOUNT)
+        depositCollateral(USER, COLLATERAL_AMOUNT)
+        mintSC(USER, MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL)
+    {
+        uint256 toBurn = 1;
+        vm.startBroadcast(USER);
+        stableCoin.approve(address(scEngine), toBurn);
+        vm.expectRevert(SCEngine.SCEngine__WouldBreakHealthFactor.selector);
+        scEngine.redeemCollateralForSC(toBurn, weth, COLLATERAL_AMOUNT);
+        vm.stopBroadcast();
+        assertEq(scEngine.getCollateralValue(USER), DEPOSITED_USD_VALUE);
+        assertEq(
+            scEngine.getSCBalance(USER),
+            MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL
+        );
+    }
+
+    /*
      * GIVEN: A healthy user
      * WHEN: Someone calls liquidate on the user
      * THEN: User is not liquidated (tx is reverted)
@@ -362,6 +473,7 @@ contract TestSCEngine is Test {
     modifier mintSC(address user, uint256 amount) {
         vm.startBroadcast(user);
         scEngine.mintSC(amount);
+        assertEq(scEngine.getSCBalance(user), amount);
         vm.stopBroadcast();
         _;
     }

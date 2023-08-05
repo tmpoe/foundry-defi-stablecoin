@@ -203,7 +203,7 @@ contract SCEngine is ReentrancyGuard {
     }
 
     function burnSC(uint256 amount) public moreThanZero(amount) {
-        _burnSC(msg.sender, amount);
+        _burnSC(msg.sender, amount, msg.sender);
     }
 
     /*
@@ -230,13 +230,18 @@ contract SCEngine is ReentrancyGuard {
         uint256 collateralBonus = tokenAmountFromDebtCovered /
             LIQUIDATION_BONUS; // is this dangerous? will test
 
+        console.log("Collateral bonus: %s", collateralBonus);
+        console.log(
+            "Token amount from debt covered: %s",
+            tokenAmountFromDebtCovered
+        );
         _redeemCollateral(
             collateral,
             tokenAmountFromDebtCovered + collateralBonus,
             user,
             msg.sender
         );
-        _burnSC(user, debtToCover);
+        _burnSC(user, debtToCover, msg.sender);
 
         uint256 endingHealthFactor = _getUserHealthFactor(user);
 
@@ -267,10 +272,12 @@ contract SCEngine is ReentrancyGuard {
     ) private {
         // Will automatically revert if not enough collateral - safemaths
         s_collateralBalances[from][collateral] -= collateralToRedeem;
-        _checkUserHealthFactor(from);
 
         emit CollateralRedeemed(from, to, collateral, collateralToRedeem);
-
+        console.log("Collateral to redeem: %s", collateralToRedeem);
+        console.log("Collateral address: %s", collateral);
+        console.log("To address: %s", to);
+        console.log("From address: %s", from);
         bool success = IERC20(collateral).transfer(to, collateralToRedeem);
 
         if (!success) {
@@ -282,8 +289,9 @@ contract SCEngine is ReentrancyGuard {
      * @dev Make sure whatever calls this method also checks health factor. Health factor
      * shall not be broken
      */
-    function _burnSC(address from, uint256 amount) private {
-        s_SCMinted[from] -= amount;
+    function _burnSC(address onBehalfOf, uint256 amount, address from) private {
+        s_SCMinted[onBehalfOf] -= amount;
+        console.log("Amount to burn: %s", amount);
         bool success = i_stableCoin.transferFrom(from, address(this), amount);
 
         if (!success) {

@@ -22,12 +22,14 @@ contract TestSCEngine is Test {
     StableCoin stableCoin;
 
     address constant USER = address(1337);
+    address constant LIQUIDATOR = address(31337);
     uint256 constant COLLATERAL_AMOUNT = 1e18;
     uint256 constant DEPOSITED_USD_VALUE = 2e21; // 2000 USD
     uint256 constant MINT_USD_VALUE_TO_MINT_WITH_ONE_COLLATERAL =
         DEPOSITED_USD_VALUE / 4;
     uint256 constant MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL =
         DEPOSITED_USD_VALUE / 2;
+    int256 public constant DROPPED_ETH_USD_PRICE = 800e8;
 
     function setUp() external {
         DeploySCEngine deploySCEngine = new DeploySCEngine();
@@ -374,9 +376,30 @@ contract TestSCEngine is Test {
     }
 
     /*
+     * GIVEN: A user with 2000 (weth + wbtc) dollar worth of collateral and 1000 SC
+     * WHEN: Weth price drops to 800 USD
+     * THEN: User's half SC can be liquidated
      */
-    function test_canLiquidateUnHealthyUser() public {
+    function test_canLiquidateUnHealthyUser()
+        public
+        mintCollateralForUser(USER)
+        allowEngineForCollateral(USER, COLLATERAL_AMOUNT)
+        depositCollateral(USER, COLLATERAL_AMOUNT)
+        mintSC(USER, MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL)
+        mintCollateralForUser(LIQUIDATOR)
+        allowEngineForCollateral(LIQUIDATOR, COLLATERAL_AMOUNT)
+        depositCollateral(LIQUIDATOR, COLLATERAL_AMOUNT)
+        mintSC(LIQUIDATOR, MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL)
+    {
         // Use mockv3aggregator interface updateAnswer to simulate price change
+        uint256 debtToCover = 500 ether; // 500 USD
+        vm.startBroadcast(LIQUIDATOR);
+        MockV3Aggregator(wethPriceFeed).updateAnswer(DROPPED_ETH_USD_PRICE);
+        assert(scEngine.getHealthFactor(USER) < scEngine.getMinHealthFactor());
+        stableCoin.approve(address(scEngine), debtToCover);
+        scEngine.liquidate(weth, USER, debtToCover);
+        assert(scEngine.getHealthFactor(USER) >= scEngine.getMinHealthFactor());
+        vm.stopBroadcast();
     }
 
     /*

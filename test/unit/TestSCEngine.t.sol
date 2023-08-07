@@ -12,6 +12,7 @@ import {StableCoin} from "../../src/StableCoin.sol";
 import {Config} from "../../script/Config.sol";
 import {SCEngine} from "../../src/SCEngine.sol";
 import {DeploySCEngine} from "../../script/DeploySCEngine.s.sol";
+import {MockFailedTransferFromCoin} from "../mocks/MockFailedTransferFromCoin.sol";
 
 contract TestSCEngine is Test {
     Config config;
@@ -20,6 +21,7 @@ contract TestSCEngine is Test {
     address weth;
     address wbtc;
     address wethPriceFeed;
+    address wbtcPriceFeed;
     StableCoin stableCoin;
 
     address constant USER = address(1337);
@@ -35,7 +37,7 @@ contract TestSCEngine is Test {
     function setUp() external {
         DeploySCEngine deploySCEngine = new DeploySCEngine();
         (scEngine, config) = deploySCEngine.run();
-        (wethPriceFeed, , weth, wbtc, deployerKey) = config
+        (wethPriceFeed, wbtcPriceFeed, weth, wbtc, deployerKey) = config
             .activeNetworkConfig();
         stableCoin = StableCoin(scEngine.getStableCoinAddress());
     }
@@ -250,6 +252,54 @@ contract TestSCEngine is Test {
         assertEq(
             scEngine.getSCBalance(USER),
             MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL
+        );
+    }
+
+    /*
+     * GIVEN: A user with 500 SC
+     * WHEN: User calls burn
+     * THEN: It fails with transfer failed and SC is not burned
+     */
+    function test_cantRedeemCollateralTransferFailed()
+        public
+        mintCollateralForUser(USER)
+    {
+        tokens.push(weth);
+        tokens.push(wbtc);
+        priceFeeds.push(wethPriceFeed);
+        priceFeeds.push(wbtcPriceFeed);
+        MockFailedTransferFromCoin mockSC = new MockFailedTransferFromCoin();
+        SCEngine mockSCEngine = new SCEngine(
+            tokens,
+            priceFeeds,
+            address(mockSC)
+        );
+
+        mockSC.transferOwnership(address(mockSCEngine));
+
+        vm.startBroadcast(USER);
+        ERC20Mock(weth).approve(address(mockSCEngine), COLLATERAL_AMOUNT);
+        ERC20Mock(wbtc).approve(address(mockSCEngine), COLLATERAL_AMOUNT);
+
+        mockSCEngine.depositCollateral(weth, COLLATERAL_AMOUNT);
+        mockSCEngine.depositCollateral(wbtc, COLLATERAL_AMOUNT);
+        uint256 collateralValue = mockSCEngine.getCollateralValue(USER);
+        // TODO this wont work on other networks but the local mock env
+        assertEq(collateralValue, DEPOSITED_USD_VALUE);
+
+        mockSCEngine.mintSC(MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL / 2);
+        assertEq(
+            mockSCEngine.getSCBalance(USER),
+            MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL / 2,
+            "Pre burn balance not okay"
+        );
+        vm.expectRevert(SCEngine.SCEngine__TransferFailed.selector);
+        mockSCEngine.burnSC(MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL / 2);
+        vm.stopBroadcast();
+        assertEq(
+            mockSCEngine.getSCBalance(USER),
+            MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL / 2,
+            "Post burn balance not okay"
         );
     }
 

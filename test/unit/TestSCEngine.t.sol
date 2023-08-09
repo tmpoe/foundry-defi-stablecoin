@@ -285,10 +285,7 @@ contract TestSCEngine is Test {
      * WHEN: User calls burn
      * THEN: It fails with transfer failed and SC is not burned
      */
-    function test_cantRedeemCollateralTransferFailed()
-        public
-        mintCollateralForUser(USER)
-    {
+    function test_cantBurnTransferFailed() public mintCollateralForUser(USER) {
         tokens.push(weth);
         tokens.push(wbtc);
         priceFeeds.push(wethPriceFeed);

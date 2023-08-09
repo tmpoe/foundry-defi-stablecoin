@@ -13,6 +13,7 @@ import {Config} from "../../script/Config.sol";
 import {SCEngine} from "../../src/SCEngine.sol";
 import {DeploySCEngine} from "../../script/DeploySCEngine.s.sol";
 import {MockFailedTransferFromCoin} from "../mocks/MockFailedTransferFromCoin.sol";
+import {MockFailedTransferERC20} from "../mocks/MockFailedTransferERC20.sol";
 
 contract TestSCEngine is Test {
     Config config;
@@ -130,6 +131,30 @@ contract TestSCEngine is Test {
         scEngine.depositCollateral(weth, 0);
         vm.stopBroadcast();
         assertEq(scEngine.getCollateralValue(USER), 0);
+    }
+
+    function test_cantDepositOnTransferFailed() public {
+        vm.startBroadcast(deployerKey);
+        MockFailedTransferFromCoin mockCollateral = new MockFailedTransferFromCoin();
+        ERC20Mock(address(mockCollateral)).mint(USER, COLLATERAL_AMOUNT);
+
+        tokens.push(address(mockCollateral));
+        priceFeeds.push(wethPriceFeed);
+
+        StableCoin sc = new StableCoin();
+        SCEngine mockSCEngine = new SCEngine(tokens, priceFeeds, address(sc));
+        sc.transferOwnership(address(mockSCEngine));
+        vm.stopBroadcast();
+
+        vm.startBroadcast(USER);
+        ERC20Mock(address(mockCollateral)).approve(
+            address(mockSCEngine),
+            COLLATERAL_AMOUNT
+        );
+        vm.expectRevert(SCEngine.SCEngine__TransferFailed.selector);
+        mockSCEngine.depositCollateral(address(mockCollateral), 1);
+        vm.stopBroadcast();
+        assertEq(mockSCEngine.getCollateralValue(USER), 0);
     }
 
     /*

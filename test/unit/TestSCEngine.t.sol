@@ -491,6 +491,9 @@ contract TestSCEngine is Test {
     }
 
     /*
+     * GIVEN: A user with 2000 (weth + wbtc) dollar worth of collateral and 1000 SC
+     * WHEN: Weth price drops to 800 USD and liquidator tries to liquidate 500 USD
+     * THEN: As it would not make liquidatee healthy, tx is reverted
      */
     function test_cantLiquidateUnHealthyUserIfWouldNotImproveHealthFactor()
         public

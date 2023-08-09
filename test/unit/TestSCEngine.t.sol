@@ -437,6 +437,53 @@ contract TestSCEngine is Test {
     }
 
     /*
+     * GIVEN: A user with deposited collateral
+     * WHEN: User calls redeem
+     * THEN: It can't redeem when transfer fails and tx reverts
+     */
+    function test_cantRedeemTransferFailed()
+        public
+        mintCollateralForUser(USER)
+    {
+        vm.startBroadcast(deployerKey);
+        MockFailedTransferERC20 mockCollateral = new MockFailedTransferERC20();
+        ERC20Mock(address(mockCollateral)).mint(USER, COLLATERAL_AMOUNT);
+
+        tokens.push(address(mockCollateral));
+        priceFeeds.push(wethPriceFeed);
+        StableCoin mockSC = new StableCoin();
+        SCEngine mockSCEngine = new SCEngine(
+            tokens,
+            priceFeeds,
+            address(mockSC)
+        );
+
+        mockSC.transferOwnership(address(mockSCEngine));
+        vm.stopBroadcast();
+
+        vm.startBroadcast(USER);
+        ERC20Mock(address(mockCollateral)).approve(
+            address(mockSCEngine),
+            COLLATERAL_AMOUNT
+        );
+
+        mockSCEngine.depositCollateral(
+            address(mockCollateral),
+            COLLATERAL_AMOUNT
+        );
+        uint256 collateralValue = mockSCEngine.getCollateralValue(USER);
+        assertEq(collateralValue, DEPOSITED_USD_VALUE / 2);
+
+        vm.expectRevert(SCEngine.SCEngine__TransferFailed.selector);
+        mockSCEngine.redeemCollateral(address(mockCollateral), 1);
+        vm.stopBroadcast();
+        assertEq(
+            mockSCEngine.getCollateralValue(USER),
+            DEPOSITED_USD_VALUE / 2
+        );
+    }
+
+    /*
      * GIVEN: A healthy user
      * WHEN: Someone calls liquidate on the user
      * THEN: User is not liquidated (tx is reverted)

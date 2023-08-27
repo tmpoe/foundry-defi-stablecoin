@@ -14,6 +14,7 @@ import {SCEngine} from "../../src/SCEngine.sol";
 import {DeploySCEngine} from "../../script/DeploySCEngine.s.sol";
 import {MockFailedTransferFromCoin} from "../mocks/MockFailedTransferFromCoin.sol";
 import {MockFailedTransferERC20} from "../mocks/MockFailedTransferERC20.sol";
+import {MockFailedMintCoin} from "../mocks/MockFailedMintCoin.sol";
 
 contract TestSCEngine is Test {
     Config config;
@@ -623,6 +624,50 @@ contract TestSCEngine is Test {
         assertEq(scEngine.getUsdValue(weth, 1 ether), 1000 ether);
     }
 
+    /*
+     * GIVEN: A user with enough collateral to mint
+     * WHEN: Calls mint and minting failes
+     * THEN: Tx is reverted and user does not have SC
+     */
+    function test_cantMintSC() public mintCollateralForUser(USER) {
+        tokens.push(weth);
+        tokens.push(wbtc);
+        priceFeeds.push(wethPriceFeed);
+        priceFeeds.push(wbtcPriceFeed);
+        MockFailedMintCoin mockSC = new MockFailedMintCoin();
+        SCEngine mockSCEngine = new SCEngine(
+            tokens,
+            priceFeeds,
+            address(mockSC)
+        );
+
+        mockSC.transferOwnership(address(mockSCEngine));
+
+        vm.startBroadcast(USER);
+        ERC20Mock(weth).approve(address(mockSCEngine), COLLATERAL_AMOUNT);
+        ERC20Mock(wbtc).approve(address(mockSCEngine), COLLATERAL_AMOUNT);
+
+        mockSCEngine.depositCollateral(weth, COLLATERAL_AMOUNT);
+        mockSCEngine.depositCollateral(wbtc, COLLATERAL_AMOUNT);
+        uint256 collateralValue = mockSCEngine.getCollateralValue(USER);
+        // TODO this wont work on other networks but the local mock env
+        assertEq(collateralValue, DEPOSITED_USD_VALUE);
+
+        vm.expectRevert(SCEngine.SCEngine__MintFailed.selector);
+        mockSCEngine.mintSC(MINT_USD_VALUE_TO_MINT_WITH_TWO_COLLATERAL / 2);
+        vm.stopBroadcast();
+        assertEq(
+            mockSCEngine.getSCBalance(USER),
+            0,
+            "SC should not have been minted"
+        );
+    }
+
+    /*
+     * GIVEN: A user with SC
+     * WHEN: We call get account information
+     * THEN: Account has the correct SC and collateral value
+     */
     function test_getAccountInformationZero()
         public
         mintCollateralForUser(USER)

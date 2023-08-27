@@ -681,6 +681,15 @@ contract TestSCEngine is Test {
         assertEq(totalCollateralValue, DEPOSITED_USD_VALUE);
     }
 
+    /*
+     * GIVEN: An enginge and a SC
+     * WHEN: We call get SC address
+     * THEN: Address is correct
+     */
+    function test_getSCAddress() public {
+        assertEq(address(scEngine.getStableCoinAddress()), address(stableCoin));
+    }
+
     modifier mintCollateralForUser(address user) {
         vm.startBroadcast(deployerKey);
         ERC20Mock(weth).mint(user, COLLATERAL_AMOUNT);

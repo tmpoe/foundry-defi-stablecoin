@@ -397,4 +397,8 @@ contract SCEngine is ReentrancyGuard {
     function getStableCoinAddress() public view returns (address) {
         return address(i_stableCoin);
     }
+
+    function getCollateralAddresses() public view returns (address[] memory) {
+        return s_tokenCollateralAddresses;
+    }
 }

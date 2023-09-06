@@ -4,7 +4,7 @@
 
 pragma solidity ^0.8.18;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, console} from "forge-std/Test.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 
 import {SCEngine} from "../../src/SCEngine.sol";
@@ -29,6 +29,7 @@ contract Handler is Test {
     }
 
     function mint(uint256 amount) public {
+        // TODO why is this never called?
         (uint256 totalSCMinted, uint256 totalCollateralValueInUSD) = scEngine
             .getAccountInformation(msg.sender);
 
@@ -36,6 +37,7 @@ contract Handler is Test {
             int256(totalSCMinted);
 
         amount = bound(amount, 0, uint256(maxAmountToMint));
+        console.log("amount: %s", amount);
         if (amount == 0) {
             return;
         }

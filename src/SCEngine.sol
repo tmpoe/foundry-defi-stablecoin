@@ -401,4 +401,11 @@ contract SCEngine is ReentrancyGuard {
     function getCollateralAddresses() public view returns (address[] memory) {
         return s_tokenCollateralAddresses;
     }
+
+    function getUserCollateralBalance(
+        address user,
+        address collateral
+    ) public view returns (uint256) {
+        return s_collateralBalances[user][collateral];
+    }
 }

@@ -28,6 +28,23 @@ contract Handler is Test {
         wbtc = ERC20Mock(collateralAddresses[1]);
     }
 
+    function mint(uint256 amount) public {
+        (uint256 totalSCMinted, uint256 totalCollateralValueInUSD) = scEngine
+            .getAccountInformation(msg.sender);
+
+        int256 maxAmountToMint = (int256(totalCollateralValueInUSD) / 2) -
+            int256(totalSCMinted);
+
+        amount = bound(amount, 0, uint256(maxAmountToMint));
+        if (amount == 0) {
+            return;
+        }
+
+        vm.startPrank(msg.sender);
+        scEngine.mintSC(amount);
+        vm.stopPrank();
+    }
+
     function depositCollateral(
         uint256 collateralSeed,
         uint256 amountCollateral

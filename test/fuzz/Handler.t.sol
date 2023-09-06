@@ -16,6 +16,8 @@ contract Handler is Test {
     ERC20Mock weth;
     ERC20Mock wbtc;
 
+    uint256 MAX_DEPOSIT = type(uint96).max;
+
     constructor(SCEngine _scEngine, StableCoin _stableCoin) {
         scEngine = _scEngine;
         stableCoin = _stableCoin;
@@ -31,7 +33,12 @@ contract Handler is Test {
         uint256 amountCollateral
     ) public {
         ERC20Mock collateral = _getCollateralFromSeed(collateralSeed);
+        amountCollateral = bound(amountCollateral, 1, MAX_DEPOSIT);
+        vm.startPrank(msg.sender);
+        collateral.mint(msg.sender, amountCollateral);
+        collateral.approve(address(scEngine), amountCollateral);
         scEngine.depositCollateral(address(collateral), amountCollateral);
+        vm.stopPrank();
     }
 
     function _getCollateralFromSeed(

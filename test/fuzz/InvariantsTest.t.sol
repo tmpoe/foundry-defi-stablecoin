@@ -52,4 +52,18 @@ contract InvariantsTest is StdInvariant, Test {
         console.log("totalSupply: %s", totalSupply);
         assert(wethValue + wbtcValue >= totalSupply);
     }
+
+    function invariant_gettersShouldNeverRevert() public view {
+        scEngine.getCollateralAddresses();
+        scEngine.getMinHealthFactor();
+        scEngine.getHealthFactor(address(this));
+        scEngine.getStableCoinAddress();
+        scEngine.getUsdValue(weth, 1);
+        scEngine.getUsdValue(wbtc, 1);
+        scEngine.getAccountInformation(address(this));
+        scEngine.getCollateralAddresses();
+        scEngine.getUserCollateralBalance(address(this), weth);
+        scEngine.getSCBalance(address(this));
+        scEngine.getCollateralValue(address(this));
+    }
 }

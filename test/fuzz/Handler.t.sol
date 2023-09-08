@@ -9,6 +9,7 @@ import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 
 import {SCEngine} from "../../src/SCEngine.sol";
 import {StableCoin} from "../../src/StableCoin.sol";
+import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
 
 contract Handler is Test {
     SCEngine scEngine;
@@ -19,6 +20,8 @@ contract Handler is Test {
     uint256 MAX_DEPOSIT = type(uint96).max;
     address[] public addressesWithCollateralDeposited;
 
+    MockV3Aggregator wethPriceFeed;
+
     constructor(SCEngine _scEngine, StableCoin _stableCoin) {
         scEngine = _scEngine;
         stableCoin = _stableCoin;
@@ -27,6 +30,7 @@ contract Handler is Test {
             .getCollateralAddresses();
         weth = ERC20Mock(collateralAddresses[0]);
         wbtc = ERC20Mock(collateralAddresses[1]);
+        wethPriceFeed = MockV3Aggregator(address(weth));
     }
 
     function mint(uint256 amount, uint256 addressSeed) public {
@@ -51,6 +55,11 @@ contract Handler is Test {
         vm.startPrank(sender);
         scEngine.mintSC(amount);
         vm.stopPrank();
+    }
+
+    function updateWethPrice(uint96 price) public {
+        int256 priceInt = int256(uint256(price));
+        wethPriceFeed.updateAnswer(priceInt);
     }
 
     function depositCollateral(

@@ -29,7 +29,6 @@ contract Handler is Test {
     }
 
     function mint(uint256 amount) public {
-        // TODO why is this never called?
         (uint256 totalSCMinted, uint256 totalCollateralValueInUSD) = scEngine
             .getAccountInformation(msg.sender);
 

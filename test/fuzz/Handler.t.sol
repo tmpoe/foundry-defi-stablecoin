@@ -17,6 +17,7 @@ contract Handler is Test {
     ERC20Mock wbtc;
 
     uint256 MAX_DEPOSIT = type(uint96).max;
+    address[] public addressesWithCollateralDeposited;
 
     constructor(SCEngine _scEngine, StableCoin _stableCoin) {
         scEngine = _scEngine;
@@ -28,9 +29,15 @@ contract Handler is Test {
         wbtc = ERC20Mock(collateralAddresses[1]);
     }
 
-    function mint(uint256 amount) public {
+    function mint(uint256 amount, uint256 addressSeed) public {
+        if (addressesWithCollateralDeposited.length == 0) {
+            return;
+        }
+        address sender = addressesWithCollateralDeposited[
+            addressSeed % addressesWithCollateralDeposited.length
+        ];
         (uint256 totalSCMinted, uint256 totalCollateralValueInUSD) = scEngine
-            .getAccountInformation(msg.sender);
+            .getAccountInformation(sender);
 
         int256 maxAmountToMint = (int256(totalCollateralValueInUSD) / 2) -
             int256(totalSCMinted);
@@ -41,7 +48,7 @@ contract Handler is Test {
             return;
         }
 
-        vm.startPrank(msg.sender);
+        vm.startPrank(sender);
         scEngine.mintSC(amount);
         vm.stopPrank();
     }
@@ -57,6 +64,7 @@ contract Handler is Test {
         collateral.approve(address(scEngine), amountCollateral);
         scEngine.depositCollateral(address(collateral), amountCollateral);
         vm.stopPrank();
+        addressesWithCollateralDeposited.push(msg.sender);
     }
 
     function redeemCollateral(

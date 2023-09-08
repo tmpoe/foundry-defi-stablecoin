@@ -8,7 +8,7 @@
 
 pragma solidity ^0.8.18;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, console} from "forge-std/Test.sol";
 import {StdInvariant} from "forge-std/StdInvariant.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -47,7 +47,9 @@ contract InvariantsTest is StdInvariant, Test {
 
         uint256 wethValue = scEngine.getUsdValue(weth, totalWethDeposited);
         uint256 wbtcValue = scEngine.getUsdValue(wbtc, totalWbtcDeposited);
-
+        console.log("wethValue: %s", wethValue);
+        console.log("wbtcValue: %s", wbtcValue);
+        console.log("totalSupply: %s", totalSupply);
         assert(wethValue + wbtcValue >= totalSupply);
     }
 }

@@ -29,6 +29,7 @@ import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/Ag
 import {console} from "forge-std/console.sol";
 
 import {StableCoin} from "./StableCoin.sol";
+import {Oracle} from "./libraries/Oracle.sol";
 
 /*
  * @title SCEngine
@@ -70,6 +71,8 @@ contract SCEngine is ReentrancyGuard {
     uint256 private constant LIQUIDATION_PRECISION = 100;
     uint256 private constant MIN_HEALTH_FACTOR = 1e18;
     uint256 private constant LIQUIDATION_BONUS = 10; //%
+
+    using Oracle for AggregatorV3Interface;
 
     event CollateralDeposited(
         address indexed depositor,
@@ -257,7 +260,7 @@ contract SCEngine is ReentrancyGuard {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(
             s_priceFeeds[collateral]
         );
-        (, int256 price, , , ) = priceFeed.latestRoundData();
+        (, int256 price, , , ) = priceFeed.staleCheckedLatestRoundData();
         // wei * 10^18 / 10^8 * 10^10 -> wei will be in wei magnitude
         return
             (usdAmountInWei * PRECISION) /
@@ -364,7 +367,7 @@ contract SCEngine is ReentrancyGuard {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(
             s_priceFeeds[token]
         );
-        (, int256 price, , , ) = priceFeed.latestRoundData();
+        (, int256 price, , , ) = priceFeed.staleCheckedLatestRoundData();
         return
             (uint256(price) * ADDITIONAL_PRICE_FEE_PRECISION * amount) /
             PRECISION;

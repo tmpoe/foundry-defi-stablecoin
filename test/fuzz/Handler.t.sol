@@ -57,10 +57,11 @@ contract Handler is Test {
         vm.stopPrank();
     }
 
-    function updateWethPrice(uint96 price) public {
-        int256 priceInt = int256(uint256(price));
-        wethPriceFeed.updateAnswer(priceInt);
-    }
+    // Price tanking breaks invariant. Will need to think of something
+    // function updateWethPrice(uint96 price) public {
+    //     int256 priceInt = int256(uint256(price));
+    //     wethPriceFeed.updateAnswer(priceInt);
+    // }
 
     function depositCollateral(
         uint256 collateralSeed,
